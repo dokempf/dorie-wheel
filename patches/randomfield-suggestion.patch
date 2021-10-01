@@ -1,0 +1,36 @@
+From fa82475df7d67a192035f8b57d90472b0832e2df Mon Sep 17 00:00:00 2001
+From: Dominic Kempf <dominic.kempf@iwr.uni-heidelberg.de>
+Date: Wed, 29 Sep 2021 15:17:49 +0200
+Subject: [PATCH] Make dune-randomfield a suggestion instead of dependency
+
+---
+ dune.module                   | 4 ++--
+ dune/dorie-rfg/CMakeLists.txt | 6 ++++--
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/dune.module b/dune.module
+index 4762b11a..b6929d16 100644
+--- a/dune.module
++++ b/dune.module
+@@ -7,5 +7,5 @@ Module: dorie
+ Version: 2.0.1
+ Maintainer: dorieteam@iup.uni-heidelberg.de
+ #depending on
+-Depends: dune-pdelab dune-uggrid dune-randomfield
+-Suggests: dune-testtools
++Depends: dune-pdelab dune-uggrid
++Suggests: dune-testtools dune-randomfield
+diff --git a/dune/dorie-rfg/CMakeLists.txt b/dune/dorie-rfg/CMakeLists.txt
+index 800172eb..36b5d512 100644
+--- a/dune/dorie-rfg/CMakeLists.txt
++++ b/dune/dorie-rfg/CMakeLists.txt
+@@ -1,2 +1,4 @@
+-add_executable(dorie-rfg dorie-rfg.cc)
+-dune_target_link_libraries(dorie-rfg ${DUNE_LIBS})
++if(dune-randomfield_FOUND)
++  add_executable(dorie-rfg dorie-rfg.cc)
++  dune_target_link_libraries(dorie-rfg ${DUNE_LIBS})
++endif()
+-- 
+2.25.1
+

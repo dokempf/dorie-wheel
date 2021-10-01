@@ -1,0 +1,24 @@
+From 27f2bd50ebbf6e4f4a2e5313503b8507762d958c Mon Sep 17 00:00:00 2001
+From: Dominic Kempf <dominic.kempf@iwr.uni-heidelberg.de>
+Date: Wed, 29 Sep 2021 14:11:52 +0200
+Subject: [PATCH] Remove dune_add_tbb_flags call
+
+---
+ dune/common/CMakeLists.txt | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/dune/common/CMakeLists.txt b/dune/common/CMakeLists.txt
+index 977246221..5d7cf5121 100644
+--- a/dune/common/CMakeLists.txt
++++ b/dune/common/CMakeLists.txt
+@@ -27,7 +27,6 @@ dune_add_library("dunecommon"
+   stdthread.cc
+   ADD_LIBS "${_additional_libs}")
+ 
+-add_dune_tbb_flags(dunecommon)
+ #install headers
+ install(FILES
+         alignment.hh
+-- 
+2.25.1
+
