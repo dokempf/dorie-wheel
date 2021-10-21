@@ -7,56 +7,98 @@ include(dorie_version.cmake)
 # Define a build rule clang-format
 include(ExternalProject)
 
-# Build FakeMPI
-ExternalProject_add(fakempi
-  GIT_REPOSITORY https://github.com/dokempf/FakeMPI
-  GIT_TAG experimental-additions
-  SOURCE_DIR ${CMAKE_BINARY_DIR}/fakempi
-  BINARY_DIR ${CMAKE_BINARY_DIR}/build-fakempi
-  INSTALL_DIR ${CMAKE_BINARY_DIR}/install-fakempi
-  UPDATE_COMMAND ""
+# Build hwloc - the version that OpenMPI bundles cannot be convinced to link
+# statically against libxml2
+ExternalProject_add(hwloc
+  URL https://download.open-mpi.org/release/hwloc/v2.5/hwloc-2.5.0.tar.gz
+  URL_HASH MD5=e9cb9230bcdf450b0948f255d505503f
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/hwloc
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/hwloc ${CMAKE_COMMAND} -E env LDFLAGS=-static ./configure --enable-static --disable-shared --prefix=${CMAKE_BINARY_DIR}/hwloc-inst --disable-libxml2
+  BUILD_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/hwloc ${CMAKE_COMMAND} -E env LDFLAGS=-all-static make
+  INSTALL_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/hwloc make install
+  INSTALL_DIR ${CMAKE_BINARY_DIR}/hwloc-inst
+  BUILD_IN_SOURCE ON
   USES_TERMINAL_DOWNLOAD 1
   USES_TERMINAL_CONFIGURE 1
   USES_TERMINAL_BUILD 1
-  CMAKE_ARGS
-    -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/install-fakempi
-    -DBUILD_SHARED_LIBS:BOOL=OFF
 )
 
+# Build OpenMPI
+ExternalProject_add(openmpi
+  URL https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.0rc2.tar.gz
+  URL_HASH MD5=9613d753f067a307933bdf9fd4231f21
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/openmpi
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/openmpi ./configure --without-memory-manager --enable-static --disable-shared --prefix=${CMAKE_BINARY_DIR}/openmpi-inst --with-libevent=internal --with-hwloc=${CMAKE_BINARY_DIR}/hwloc-inst --with-pmix=internal --without-libnl --with-prrte=internal
+  BUILD_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/openmpi make
+  INSTALL_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/openmpi make install
+  INSTALL_DIR ${CMAKE_BINARY_DIR}/openmpi-inst
+  BUILD_IN_SOURCE ON
+  USES_TERMINAL_DOWNLOAD 1
+  USES_TERMINAL_CONFIGURE 1
+  USES_TERMINAL_BUILD 1
+  DEPENDS hwloc
+)
 
-# Build HDF5 - wild
-# https://www.mpi-forum.org/docs/mpi-3.1/mpi31-report.pdf
+# Build HDF5
 ExternalProject_add(hdf5
-  GIT_REPOSITORY https://github.com/HDFGroup/hdf5
-  GIT_TAG hdf5-1_12_1
+  URL https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.12/hdf5-1.12.1/src/hdf5-1.12.1.tar.gz
+  URL_HASH MD5=e4f057f0a3eb4237c7799605357a584d
   SOURCE_DIR ${CMAKE_BINARY_DIR}/hdf5
-  BINARY_DIR ${CMAKE_BINARY_DIR}/build-hdf5
-  UPDATE_COMMAND ""
-  INSTALL_COMMAND ""
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/hdf5 ${CMAKE_COMMAND} -E env CC=${CMAKE_BINARY_DIR}/openmpi-inst/bin/mpicc ./configure --enable-static --disable-shared --enable-parallel --prefix=${CMAKE_BINARY_DIR}/hdf5-inst
+  INSTALL_COMMAND make install
+  INSTALL_DIR ${CMAKE_BINARY_DIR}/hdf5-inst
+  BUILD_IN_SOURCE ON
   USES_TERMINAL_DOWNLOAD 1
   USES_TERMINAL_CONFIGURE 1
   USES_TERMINAL_BUILD 1
-  DEPENDS fakempi
-  CMAKE_ARGS
-    -DBUILD_SHARED_LIBS:BOOL=OFF
-    -DBUILD_TESTING:BOOL=OFF
-    -DCMAKE_C_FLAGS="-DMPI_FILE_NULL=1"
-    -DCMAKE_FIND_PACKAGE_PREFER_CONFIG:BOOL=ON
-    -DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/install-fakempi
-    -DHDF5_ENABLE_PARALLEL:BOOL=ON
+  DEPENDS openmpi
 )
 
-# Skip the rest for now
-return()
+# Build FFTW3
+ExternalProject_add(fftw3
+  URL https://www.fftw.org/fftw-3.3.10.tar.gz
+  URL_HASH MD5=8ccbf6a5ea78a16dbc3e1306e234cc5c
+  SOURCE_DIR ${CMAKE_BINARY_DIR}/fftw3
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/fftw3 ${CMAKE_COMMAND} -E env CC=${CMAKE_BINARY_DIR}/openmpi-inst/bin/mpicc ./configure --enable-static --disable-shared --prefix=${CMAKE_BINARY_DIR}/fftw3-inst --enable-mpi
+  INSTALL_COMMAND make install
+  INSTALL_DIR ${CMAKE_BINARY_DIR}/fftw3-inst
+  BUILD_IN_SOURCE ON
+  USES_TERMINAL_DOWNLOAD 1
+  USES_TERMINAL_CONFIGURE 1
+  USES_TERMINAL_BUILD 1
+  DEPENDS openmpi
+)
+
+# CMAKE_ARGS
+# -DBUILD_SHARED_LIBS:BOOL=OFF
+# -DBUILD_TESTING:BOOL=OFF
+# -DCMAKE_C_STANDARD=99
+# -DCMAKE_FIND_PACKAGE_PREFER_CONFIG:BOOL=ON
+# -DMPI_HOME=${CMAKE_BINARY_DIR}/openmpi-inst
+# -DHDF5_ENABLE_PARALLEL:BOOL=ON
+# -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/hdf5-inst
+# )
 
 # The CMake arguments that we pass to all Dune modules
-set(DUNE_CMAKE_ARGS 
+set(DUNE_CMAKE_ARGS
+  -DCMAKE_FIND_DEBUG_MODE=ON
   -DDUNE_PYTHON_INSTALL_LOCATION=none
   -DCMAKE_BUILD_TYPE=Release
   -DBUILD_SHARED_LIBS=OFF
   -DCMAKE_EXE_LINKER_FLAGS=-static
   -DCMAKE_DISABLE_FIND_PACKAGE_TBB=ON
   -DSTDTHREAD_WORKS=ON
+  -DMPI_HOME=${CMAKE_BINARY_DIR}/openmpi-inst
+  -DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/hdf5-inst
+  -DCMAKE_DISABLE_FIND_PACKAGE_METIS=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_ParMETIS=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_PTScotch=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_PNG=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_GSL=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_ARPACK=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_ARPACKPP=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_SuperLU=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_SuiteSparse=ON
 )
 
 # Keep a list of Dune modules that we already build against. This replaces
@@ -74,12 +116,6 @@ function(add_dune_module)
     set(MODULE_GITREV releases/2.6)
   endif()
 
-  # Form a string for dependencies
-  set(DEPENDS_OPT "")
-  if(DUNE_MODULES)
-    set(DEPENDS_OPT DEPENDS ${DUNE_MODULES})
-  endif()
-
   # Define an external project
   ExternalProject_add(${MODULE_NAME}
     GIT_REPOSITORY ${MODULE_URL}
@@ -91,7 +127,7 @@ function(add_dune_module)
     USES_TERMINAL_DOWNLOAD 1
     USES_TERMINAL_CONFIGURE 1
     USES_TERMINAL_BUILD 1
-    ${DEPENDS_OPT}
+    DEPENDS openmpi hdf5 fftw3 ${DUNE_MODULES}
     CMAKE_ARGS
       ${DUNE_MODULES_DIRS}
       ${DUNE_CMAKE_ARGS}
@@ -112,7 +148,7 @@ add_dune_module(NAME dune-grid URL https://gitlab.dune-project.org/core/dune-gri
 add_dune_module(NAME dune-typetree URL https://gitlab.dune-project.org/staging/dune-typetree)
 add_dune_module(NAME dune-functions URL https://gitlab.dune-project.org/staging/dune-functions)
 add_dune_module(NAME dune-pdelab URL https://gitlab.dune-project.org/pdelab/dune-pdelab)
-#add_dune_module(NAME dune-randomfield URL https://gitlab.dune-project.org/oklein/dune-randomfield)
+add_dune_module(NAME dune-randomfield URL https://gitlab.dune-project.org/oklein/dune-randomfield)
 add_dune_module(NAME dorie URL https://ts-gitlab.iup.uni-heidelberg.de/dorie/dorie GITREV v${DORIE_VERSION})
 
 # Add patches to Dune modules - urgh
@@ -126,7 +162,7 @@ ExternalProject_Add_Step(
 ExternalProject_Add_Step(
   dorie dorie-patch-1
   COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/disable-documentation.patch
-  COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/randomfield-suggestion.patch
+#  COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/randomfield-suggestion.patch
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/dorie
   DEPENDEES download
 )
