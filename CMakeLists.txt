@@ -7,6 +7,8 @@ include(dorie_version.cmake)
 # Define a build rule clang-format
 include(ExternalProject)
 
+cmake_policy(SET CMP0074 NEW)
+
 # Build hwloc - the version that OpenMPI bundles cannot be convinced to link
 # statically against libxml2
 ExternalProject_add(hwloc
@@ -28,7 +30,7 @@ ExternalProject_add(openmpi
   URL https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.0rc2.tar.gz
   URL_HASH MD5=9613d753f067a307933bdf9fd4231f21
   SOURCE_DIR ${CMAKE_BINARY_DIR}/openmpi
-  CONFIGURE_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/openmpi ./configure --without-memory-manager --enable-static --disable-shared --prefix=${CMAKE_BINARY_DIR}/openmpi-inst --with-libevent=internal --with-hwloc=${CMAKE_BINARY_DIR}/hwloc-inst --with-pmix=internal --without-libnl --with-prrte=internal
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/openmpi ./configure --without-memory-manager --enable-static --disable-shared --prefix=${CMAKE_BINARY_DIR}/openmpi-inst --with-libevent=internal --with-hwloc=${CMAKE_BINARY_DIR}/hwloc-inst --with-pmix=internal --without-libnl --with-prrte=internal --disable-dlopen
   BUILD_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/openmpi make
   INSTALL_COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR}/openmpi make install
   INSTALL_DIR ${CMAKE_BINARY_DIR}/openmpi-inst
@@ -99,6 +101,9 @@ set(DUNE_CMAKE_ARGS
   -DCMAKE_DISABLE_FIND_PACKAGE_ARPACKPP=ON
   -DCMAKE_DISABLE_FIND_PACKAGE_SuperLU=ON
   -DCMAKE_DISABLE_FIND_PACKAGE_SuiteSparse=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_LAPACK=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_BLAS=ON
+  -DCMAKE_DISABLE_FIND_PACKAGE_GMP=ON
 )
 
 # Keep a list of Dune modules that we already build against. This replaces
@@ -149,7 +154,7 @@ add_dune_module(NAME dune-typetree URL https://gitlab.dune-project.org/staging/d
 add_dune_module(NAME dune-functions URL https://gitlab.dune-project.org/staging/dune-functions)
 add_dune_module(NAME dune-pdelab URL https://gitlab.dune-project.org/pdelab/dune-pdelab)
 add_dune_module(NAME dune-randomfield URL https://gitlab.dune-project.org/oklein/dune-randomfield)
-add_dune_module(NAME dorie URL https://ts-gitlab.iup.uni-heidelberg.de/dorie/dorie GITREV v${DORIE_VERSION})
+add_dune_module(NAME dorie URL https://gitlab.dune-project.org/dorie/dorie GITREV v${DORIE_VERSION})
 
 # Add patches to Dune modules - urgh
 ExternalProject_Add_Step(
